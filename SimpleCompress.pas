@@ -19,7 +19,7 @@ unit SimpleCompress;
 interface
 
 uses
-  Classes, AuxTypes;
+  Classes;
 
 Function ZCompressBuffer(InBuff: Pointer; InSize: Integer; out OutBuff: Pointer; out OutSize: Integer): Boolean;
 Function ZCompressStream(Stream: TStream): Boolean; overload;
@@ -36,7 +36,7 @@ Function ZDecompressFile(const InFileName, OutFileName: String): Boolean; overlo
 implementation
 
 uses
-  SysUtils,{$IFDEF FPC} PasZLib, ZStream{$ELSE} Zlib{$ENDIF};
+  SysUtils,{$IFDEF FPC} PasZLib, ZStream{$ELSE} Zlib{$ENDIF}, AuxTypes;
 
 const
   buffer_size = $100000 {1MiB};
