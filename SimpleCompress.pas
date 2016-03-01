@@ -9,9 +9,9 @@
 
   Simple (De)Compression routines (powered by ZLib)
 
-  ©František Milt 2016-02-09
+  ©František Milt 2016-03-01
 
-  Version 1.2
+  Version 1.2.1
 
 ===============================================================================}
 unit SimpleCompress;
@@ -36,7 +36,14 @@ Function ZDecompressFile(const InFileName, OutFileName: String): Boolean; overlo
 implementation
 
 uses
-  SysUtils,{$IFDEF FPC} PasZLib, ZStream{$ELSE} Zlib{$ENDIF}, AuxTypes;
+  SysUtils,{$IFDEF FPC} PasZLib, ZStream{$ELSE} Zlib{$ENDIF}, AuxTypes
+  {$IF Defined(FPC) and not Defined(Unicode)}
+  (*
+    If compiler throws error that LazUTF8 unit cannot be found, you have to
+    add LazUtils to required packages (Project > Project Inspector).
+  *)
+  , LazUTF8
+  {$IFEND};
 
 const
   buffer_size = $100000 {1MiB};
@@ -207,7 +214,11 @@ var
   TempStream: TFileStream;
 begin
 try
+{$IF Defined(FPC) and not Defined(Unicode)}
+  TempStream := TFileStream.Create(UTF8ToSys(FileName),fmOpenReadWrite or fmShareExclusive);
+{$ELSE}
   TempStream := TFileStream.Create(FileName,fmOpenReadWrite or fmShareExclusive);
+{$IFEND}
   try
     Result := ZCompressStream(TempStream);
   finally
@@ -229,9 +240,17 @@ If AnsiSameText(InFileName,OutFileName) then
   Result := ZCompressFile(InFileName)
 else
   begin
+  {$IF Defined(FPC) and not Defined(Unicode)}
+    InFileStream := TFileStream.Create(UTF8ToSys(InFileName),fmOpenRead or fmShareDenyWrite);
+  {$ELSE}
     InFileStream := TFileStream.Create(InFileName,fmOpenRead or fmShareDenyWrite);
+  {$IFEND}
     try
+    {$IF Defined(FPC) and not Defined(Unicode)}
+      OutFileStream := TFileStream.Create(UTF8ToSys(OutFileName),fmCreate or fmShareExclusive);
+    {$ELSE}
       OutFileStream := TFileStream.Create(OutFileName,fmCreate or fmShareExclusive);
+    {$IFEND}
       try
         Result := ZCompressStream(InFileStream,OutFileStream);
       finally
@@ -366,7 +385,11 @@ var
   TempStream: TFileStream;
 begin
 try
+{$IF Defined(FPC) and not Defined(Unicode)}
+  TempStream := TFileStream.Create(UTF8ToSys(FileName),fmOpenReadWrite or fmShareExclusive);
+{$ELSE}
   TempStream := TFileStream.Create(FileName,fmOpenReadWrite or fmShareExclusive);
+{$IFEND}
   try
     Result := ZDecompressStream(TempStream);
   finally
@@ -388,9 +411,17 @@ If AnsiSameText(InFileName,OutFileName) then
   Result := ZCompressFile(InFileName)
 else
   begin
+  {$IF Defined(FPC) and not Defined(Unicode)}
+    InFileStream := TFileStream.Create(UTF8ToSys(InFileName),fmOpenRead or fmShareDenyWrite);
+  {$ELSE}
     InFileStream := TFileStream.Create(InFileName,fmOpenRead or fmShareDenyWrite);
+  {$IFEND}
     try
+    {$IF Defined(FPC) and not Defined(Unicode)}
+      OutFileStream := TFileStream.Create(UTF8ToSys(OutFileName),fmCreate or fmShareExclusive);
+    {$ELSE}
       OutFileStream := TFileStream.Create(OutFileName,fmCreate or fmShareExclusive);
+    {$IFEND}
       try
         Result := ZDecompressStream(InFileStream,OutFileStream);
       finally
