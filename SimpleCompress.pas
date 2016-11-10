@@ -13,6 +13,9 @@
 
   Version 1.2.1
 
+  Dependencies:
+    AuxTypes - github.com/ncs-sniper/Lib.AuxTypes
+
 ===============================================================================}
 unit SimpleCompress;
 
