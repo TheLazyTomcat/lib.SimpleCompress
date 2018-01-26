@@ -9,13 +9,16 @@
 
   Simple (De)Compression routines (powered by ZLib)
 
-  ©František Milt 2017-07-18
+  ©František Milt 2018-01-26
 
-  Version 1.2.2
+  Version 1.3
 
   Dependencies:
-    AuxTypes - github.com/ncs-sniper/Lib.AuxTypes
-    StrRect  - github.com/ncs-sniper/Lib.StrRect
+    AuxTypes     - github.com/ncs-sniper/Lib.AuxTypes
+    StrRect      - github.com/ncs-sniper/Lib.StrRect
+    MemoryBuffer - github.com/ncs-sniper/Lib.MemoryBuffer
+    ZLib         - github.com/ncs-sniper/Bnd.ZLib
+    ZLibUtils    - github.com/ncs-sniper/Lib.ZLibUtils
 
 ===============================================================================}
 unit SimpleCompress;
@@ -27,185 +30,109 @@ unit SimpleCompress;
 interface
 
 uses
-  Classes;
+  Classes, AuxTypes, ZLibUtils;
 
-Function ZCompressBuffer(InBuff: Pointer; InSize: Integer; out OutBuff: Pointer; out OutSize: Integer): Boolean;
-Function ZCompressStream(Stream: TStream): Boolean; overload;
-Function ZCompressStream(InStream, OutStream: TStream): Boolean; overload;
-Function ZCompressFile(const FileName: String): Boolean; overload;
-Function ZCompressFile(const InFileName, OutFileName: String): Boolean; overload;
+Function ZCompressBuffer(InBuff: Pointer; InSize: TMemSize; out OutBuff: Pointer; out OutSize: TMemSize; StreamType: TZStreamType = zstDefault): Boolean;
+Function ZCompressStream(Stream: TStream; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZCompressStream(InStream, OutStream: TStream; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZCompressFile(const FileName: String; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZCompressFile(const InFileName, OutFileName: String; StreamType: TZStreamType = zstDefault): Boolean; overload;
 
-Function ZDecompressBuffer(InBuff: Pointer; InSize: Integer; out OutBuff: Pointer; out OutSize: Integer): Boolean;
-Function ZDecompressStream(Stream: TStream): Boolean; overload;
-Function ZDecompressStream(InStream, OutStream: TStream): Boolean; overload;
-Function ZDecompressFile(const FileName: String): Boolean; overload;
-Function ZDecompressFile(const InFileName, OutFileName: String): Boolean; overload;
+Function ZDecompressBuffer(InBuff: Pointer; InSize: TMemSize; out OutBuff: Pointer; out OutSize: TMemSize; StreamType: TZStreamType = zstDefault): Boolean;
+Function ZDecompressStream(Stream: TStream; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZDecompressStream(InStream, OutStream: TStream; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZDecompressFile(const FileName: String; StreamType: TZStreamType = zstDefault): Boolean; overload;
+Function ZDecompressFile(const InFileName, OutFileName: String; StreamType: TZStreamType = zstDefault): Boolean; overload;
 
 implementation
 
 uses
-  SysUtils,{$IFDEF FPC} PasZLib, ZStream{$ELSE} Zlib{$ENDIF}, AuxTypes, StrRect;
+  SysUtils, MemoryBuffer, StrRect;
 
 const
-  buffer_size = $100000 {1MiB};
+  COPY_BUFFER_SIZE = 1024 * 1024 {1MiB};
 
-// Because TStream.CopyFrom can be painfully slow...
-procedure CopyStream(Src, Dest: TStream);
+procedure CopyStream(Src,Dest: TStream);
 var
-  Buffer:     Pointer;
+  Buffer:     TMemoryBuffer;
   BytesRead:  Integer;
 begin
-GetMem(Buffer,buffer_size);
+GetBuffer(Buffer,COPY_BUFFER_SIZE);
 try
-  Src.Position := 0;
-  Dest.Position := 0;
   repeat
-    BytesRead := Src.Read(Buffer^,buffer_size);
-    Dest.WriteBuffer(Buffer^,BytesRead);
-  until BytesRead < buffer_size;
-  Dest.Size := Src.Size;
+    BytesRead := Src.Read(Buffer.Memory^,Buffer.Size);
+    Dest.WriteBuffer(Buffer.Memory^,BytesRead);
+  until TMemSize(BytesRead) < Buffer.Size;
 finally
-  FreeMem(Buffer,buffer_size);
+  FreeBuffer(Buffer);
 end;
-end;
-
-//------------------------------------------------------------------------------
-
-Function CheckResultCode(ResultCode: Integer): Integer;
-begin
-Result := ResultCode;
-If ResultCode < 0 then
-  raise Exception.CreateFmt('Zlib error %d.',[ResultCode]);
 end;
 
 //==============================================================================
 
-Function ZCompressBuffer(InBuff: Pointer; InSize: Integer; out OutBuff: Pointer; out OutSize: Integer): Boolean;
-{$IFDEF FPC}
+Function ZCompressBuffer(InBuff: Pointer; InSize: TMemSize; out OutBuff: Pointer; out OutSize: TMemSize; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  ZStream:    TZStream;
-  SizeDelta:  Integer;
-  ResultCode: Integer;
-{$ENDIF}  
+  Compressor: TZCompressionBuffer;
 begin
 try
-  OutBuff := nil;
-  OutSize := 0;
-{$IFDEF FPC}
-  FillChar({%H-}ZStream,SizeOf(TZStream),0);
-  SizeDelta := ((InSize div 4) + 255) and not Integer(255);
-  OutSize := SizeDelta;
-  CheckResultCode(DeflateInit(ZStream,Z_DEFAULT_COMPRESSION));
+  Compressor := TZCompressionBuffer.Create(InBuff,InSize,zclDefault,StreamType);
   try
-    ResultCode := Z_OK;
-    ZStream.next_in := InBuff;
-    ZStream.avail_in := InSize;
-    repeat
-      ReallocMem(OutBuff,OutSize);
-      ZStream.next_out := {%H-}Pointer({%H-}PtrUInt(OutBuff) + PtrUInt(ZStream.total_out));
-      ZStream.avail_out := Cardinal(OutSize) - ZStream.total_out;
-      ResultCode := CheckResultCode(Deflate(ZStream,Z_NO_FLUSH));
-      Inc(OutSize, SizeDelta);
-    until (ResultCode = Z_STREAM_END) or (ZStream.avail_in = 0);
-    // flush what is left in zlib internal state
-    while ResultCode <> Z_STREAM_END do
-      begin
-        ReallocMem(OutBuff,OutSize);
-        ZStream.next_out := {%H-}Pointer({%H-}PtrUInt(OutBuff) + PtrUInt(ZStream.total_out));
-        ZStream.avail_out := Cardinal(OutSize) - ZStream.total_out;
-        ResultCode := CheckResultCode(Deflate(ZStream,Z_FINISH));
-        Inc(OutSize, SizeDelta);
-      end;
-    OutSize := ZStream.total_out;
-    ReallocMem(OutBuff,OutSize);
+    Compressor.Process;
+    Compressor.FreeResult := False;
+    OutBuff := Compressor.ResultMemory;
+    OutSize := Compressor.ResultSize;
     Result := True;
   finally
-    CheckResultCode(DeflateEnd(ZStream));
+    Compressor.Free;
   end;
-{$ELSE}
-// newer than Delphi 7 (but no idea when it has really changed)
-{$IF CompilerVersion >= 16}
-  ZCompress(InBuff,InSize,OutBuff,OutSize);
-{$ELSE}
-  CompressBuf(InBuff,InSize,OutBuff,OutSize);
-{$IFEND}
-  Result := True;
-{$ENDIF}
 except
   Result := False;
-  If Assigned(OutBuff) and (OutSize <> 0) then
-    FreeMem(OutBuff,OutSize);
 end;
 end;
 
 //------------------------------------------------------------------------------
 
-Function ZCompressStream(Stream: TStream): Boolean;
+Function ZCompressStream(Stream: TStream; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  TempStream:         TMemoryStream;
-  CompressionStream:  TCompressionStream;
-  Buffer:             Pointer;
-  BytesRead:          Integer;
+  TempStream: TMemoryStream;
 begin
+TempStream := TMemoryStream.Create;
 try
-  TempStream := TMemoryStream.Create;
-  try
-    CompressionStream := TCompressionStream.Create(clDefault,TempStream);
-    try
-     GetMem(Buffer,buffer_size);
-      try
-        Stream.Position := 0;
-        repeat
-          BytesRead := Stream.Read(Buffer^,buffer_size);
-          CompressionStream.WriteBuffer(Buffer^,BytesRead);
-        until BytesRead < buffer_size;
-      finally
-        FreeMem(Buffer,buffer_size);
-      end;
-    finally
-      CompressionStream.Free;
+  TempStream.Size := Stream.Size;
+  Result := ZCompressStream(Stream,TempStream,StreamType);
+  If Result then
+    begin
+      TempStream.Position := 0;
+      Stream.Position := 0;
+      CopyStream(TempStream,Stream);
+      Stream.Size := Stream.Position;
     end;
-    CopyStream(TempStream,Stream);
-    Result := True;
-  finally
-    TempStream.Free;
-  end;
-except
-  Result := False;
+finally
+  TempStream.Free;
 end;
 end;
 
 //   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---
 
-Function ZCompressStream(InStream, OutStream: TStream): Boolean;
+Function ZCompressStream(InStream, OutStream: TStream; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  CompressionStream:  TCompressionStream;
-  Buffer:             Pointer;
-  BytesRead:          Integer;
+  Compressor: TZCompressionStream;
 begin
 try
   If InStream = OutStream then
     Result := ZCompressStream(InStream)
   else
     begin
-      OutStream.Position := 0;    
-      CompressionStream := TCompressionStream.Create(clDefault,OutStream);
+      Compressor := TZCompressionStream.Create(OutStream,zclDefault,StreamType);
       try
-       GetMem(Buffer,buffer_size);
-        try
-          InStream.Position := 0;
-          repeat
-            BytesRead := InStream.Read(Buffer^,buffer_size);
-            CompressionStream.WriteBuffer(Buffer^,BytesRead);
-          until BytesRead < buffer_size;
-        finally
-          FreeMem(Buffer,buffer_size);
-        end;
+        InStream.Position := 0;
+        OutStream.Position := 0;
+        CopyStream(InStream,Compressor);
+        OutStream.Size := OutStream.Position;
+        Result := True;
       finally
-        CompressionStream.Free;
+        Compressor.Free;
       end;
-      OutStream.Size := OutStream.Position;
-      Result := True;      
     end;
 except
   Result := False;
@@ -214,16 +141,16 @@ end;
 
 //------------------------------------------------------------------------------
 
-Function ZCompressFile(const FileName: String): Boolean;
+Function ZCompressFile(const FileName: String; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  TempStream: TFileStream;
+  FileStream: TFileStream;
 begin
 try
-  TempStream := TFileStream.Create(StrToRTL(FileName),fmOpenReadWrite or fmShareExclusive);
+  FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenReadWrite or fmShareExclusive);
   try
-    Result := SimpleCompress.ZCompressStream(TempStream);
+    Result := ZCompressStream(FileStream,StreamType);
   finally
-    TempStream.Free;
+    FileStream.Free;
   end;
 except
   Result := False;
@@ -232,7 +159,7 @@ end;
 
 //   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---
 
-Function ZCompressFile(const InFileName, OutFileName: String): Boolean;
+Function ZCompressFile(const InFileName, OutFileName: String; StreamType: TZStreamType = zstDefault): Boolean;
 var
   InFileStream:   TFileStream;
   OutFileStream:  TFileStream;
@@ -245,7 +172,7 @@ else
     try
       OutFileStream := TFileStream.Create(StrToRTL(OutFileName),fmCreate or fmShareExclusive);
       try
-        Result := SimpleCompress.ZCompressStream(InFileStream,OutFileStream);
+        Result := ZCompressStream(InFileStream,OutFileStream,StreamType);
       finally
         OutFileStream.Free;
       end;
@@ -257,86 +184,87 @@ end;
 
 //==============================================================================
 
-Function ZDecompressBuffer(InBuff: Pointer; InSize: Integer; out OutBuff: Pointer; out OutSize: Integer): Boolean;
-{$IFDEF FPC}
+Function ZDecompressBuffer(InBuff: Pointer; InSize: TMemSize; out OutBuff: Pointer; out OutSize: TMemSize; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  ZStream:    TZStream;
-  SizeDelta:  Integer;
-  ResultCode: Integer;
-{$ENDIF}  
+  Decompressor: TZDecompressionBuffer;
 begin
 try
-  OutBuff := nil;
-  OutSize := 0;
-{$IFDEF FPC}
-  FillChar({%H-}ZStream,SizeOf(TZStream),0);
-  SizeDelta := (InSize + 255) and not Integer(255);
-  OutSize := SizeDelta;
-  CheckResultCode(InflateInit(ZStream));
+  Decompressor := TZDecompressionBuffer.Create(InBuff,InSize,StreamType);
   try
-    ResultCode := Z_OK;
-    ZStream.next_in := InBuff;
-    ZStream.avail_in := InSize;
-    while (ResultCode <> Z_STREAM_END) and (ZStream.avail_in > 0) do
-      repeat
-        ReallocMem(OutBuff,OutSize);
-        ZStream.next_out := {%H-}Pointer({%H-}PtrUInt(OutBuff) + PtrUInt(ZStream.total_out));
-        ZStream.avail_out := Cardinal(OutSize) - ZStream.total_out;
-        ResultCode := CheckResultCode(Inflate(ZStream,Z_NO_FLUSH));
-        Inc(OutSize, SizeDelta);
-      until (ResultCode = Z_STREAM_END) or (ZStream.avail_out > 0);
-    OutSize := ZStream.total_out;
-    ReallocMem(OutBuff,OutSize);
+    Decompressor.Process;
+    Decompressor.FreeResult := False;
+    OutBuff := Decompressor.ResultMemory;
+    OutSize := Decompressor.ResultSize;
     Result := True;
   finally
-    CheckResultCode(InflateEnd(ZStream));
+    Decompressor.Free;
   end;
-{$ELSE}
-{$IF CompilerVersion >= 16}
-  ZDecompress(InBuff,InSize,OutBuff,OutSize);
-{$ELSE}
-  DecompressBuf(InBuff,InSize,buffer_size,OutBuff,OutSize);
-{$IFEND}
-  Result := True;
-{$ENDIF}
 except
   Result := False;
-  If Assigned(OutBuff) and (OutSize <> 0) then
-    FreeMem(OutBuff,OutSize);
 end;
 end;
 
 //------------------------------------------------------------------------------
 
-Function ZDecompressStream(Stream: TStream): Boolean;
+Function ZDecompressStream(Stream: TStream; StreamType: TZStreamType = zstDefault): Boolean;
 var
-  TempStream:           TMemoryStream;
-  DecompressionStream:  TDecompressionStream;
-  Buffer:               Pointer;
-  BytesRead:            Integer;
+  TempStream: TMemoryStream;
+begin
+TempStream := TMemoryStream.Create;
+try
+  TempStream.Size := Stream.Size * 2;
+  Result := ZDecompressStream(Stream,TempStream,StreamType);
+  If Result then
+    begin
+      TempStream.Position := 0;
+      Stream.Position := 0;
+      CopyStream(TempStream,Stream);
+      Stream.Size := Stream.Position;
+    end;
+finally
+  TempStream.Free;
+end;
+end;
+
+//   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---
+
+Function ZDecompressStream(InStream, OutStream: TStream; StreamType: TZStreamType = zstDefault): Boolean;
+var
+  Decompressor: TZDecompressionStream;
 begin
 try
-  TempStream := TMemoryStream.Create;
-  try
-    Stream.Position := 0;
-    DecompressionStream := TDecompressionStream.Create(Stream);
-    try
-      GetMem(Buffer,buffer_size);
+  If InStream = OutStream then
+    Result := ZDecompressStream(InStream)
+  else
+    begin
+      Decompressor := TZDecompressionStream.Create(InStream,StreamType);
       try
-        repeat
-          BytesRead := DecompressionStream.Read(Buffer^,buffer_size);
-          TempStream.WriteBuffer(Buffer^,BytesRead);
-        until BytesRead < buffer_size;
+        InStream.Position := 0;
+        OutStream.Position := 0;
+        CopyStream(Decompressor,OutStream);
+        OutStream.Size := OutStream.Position;
+        Result := True;
       finally
-        FreeMem(Buffer,buffer_size);
+        Decompressor.Free;
       end;
-    finally
-      DecompressionStream.Free;
     end;
-    CopyStream(TempStream,Stream);
-    Result := True;
+except
+  Result := False;
+end;
+end;
+
+//------------------------------------------------------------------------------
+
+Function ZDecompressFile(const FileName: String; StreamType: TZStreamType = zstDefault): Boolean;
+var
+  FileStream: TFileStream;
+begin
+try
+  FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenReadWrite or fmShareExclusive);
+  try
+    Result := ZDecompressStream(FileStream,StreamType);
   finally
-    TempStream.Free;
+    FileStream.Free;
   end;
 except
   Result := False;
@@ -345,57 +273,7 @@ end;
 
 //   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---
 
-Function ZDecompressStream(InStream, OutStream: TStream): Boolean;
-var
-  DecompressionStream:  TDecompressionStream;
-  Buffer:               Pointer;
-  BytesRead:            Integer;
-begin
-try
-  InStream.Position := 0;
-  DecompressionStream := TDecompressionStream.Create(InStream);
-  try
-    GetMem(Buffer,buffer_size);
-    try
-      OutStream.Position := 0;
-      repeat
-        BytesRead := DecompressionStream.Read(Buffer^,buffer_size);
-        OutStream.WriteBuffer(Buffer^,BytesRead);
-      until BytesRead < buffer_size;
-    finally
-      FreeMem(Buffer,buffer_size);
-    end;
-  finally
-    DecompressionStream.Free;
-  end;
-  OutStream.Size := OutStream.Position;
-  Result := True;
-except
-  Result := False;
-end;
-end;
-
-//------------------------------------------------------------------------------
-
-Function ZDecompressFile(const FileName: String): Boolean;
-var
-  TempStream: TFileStream;
-begin
-try
-  TempStream := TFileStream.Create(StrToRTL(FileName),fmOpenReadWrite or fmShareExclusive);
-  try
-    Result := SimpleCompress.ZDecompressStream(TempStream);
-  finally
-    TempStream.Free;
-  end;
-except
-  Result := False;
-end;
-end;
-
-//------------------------------------------------------------------------------
-
-Function ZDecompressFile(const InFileName, OutFileName: String): Boolean;
+Function ZDecompressFile(const InFileName, OutFileName: String; StreamType: TZStreamType = zstDefault): Boolean;
 var
   InFileStream:   TFileStream;
   OutFileStream:  TFileStream;
@@ -408,7 +286,7 @@ else
     try
       OutFileStream := TFileStream.Create(StrToRTL(OutFileName),fmCreate or fmShareExclusive);
       try
-        Result := SimpleCompress.ZDecompressStream(InFileStream,OutFileStream);
+        Result := ZDecompressStream(InFileStream,OutFileStream,StreamType);
       finally
         OutFileStream.Free;
       end;
