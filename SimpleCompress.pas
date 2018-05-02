@@ -15,6 +15,7 @@
 
   Dependencies:
     AuxTypes     - github.com/ncs-sniper/Lib.AuxTypes
+    AuxClasses   - github.com/ncs-sniper/Lib.AuxClasses
     StrRect      - github.com/ncs-sniper/Lib.StrRect
     MemoryBuffer - github.com/ncs-sniper/Lib.MemoryBuffer
     ZLib         - github.com/ncs-sniper/Bnd.ZLib
