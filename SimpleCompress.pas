@@ -14,7 +14,7 @@
 
   Version 1.4 (2020-07-13)
 
-  Last change 2020-07-13
+  Last change 2020-08-02
 
   ©2015-2020 František Milt
 
@@ -45,7 +45,7 @@
 unit SimpleCompress;
 
 {$IFDEF FPC}
-  {$MODE ObjFPC}{$H+}
+  {$MODE ObjFPC}
   {$INLINE ON}
   {$DEFINE CanInline}
 {$ELSE}
@@ -55,6 +55,7 @@ unit SimpleCompress;
     {$UNDEF CanInline}
   {$IFEND}
 {$ENDIF}
+{$H+}
 
 interface
 
