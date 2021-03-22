@@ -12,11 +12,11 @@
     Set of functions designed to ease compression and decompression of memory
     buffers, streams and files. Actual compression is done using zlib library.
 
-  Version 1.4 (2020-07-13)
+  Version 1.4 (2021-03-22)
 
   Last change 2020-08-02
 
-  ©2015-2020 František Milt
+  ©2015-2021 František Milt
 
   Contacts:
     František Milt: frantisek.milt@gmail.com
@@ -38,7 +38,8 @@
     MemoryBuffer - github.com/TheLazyTomcat/Lib.MemoryBuffer
     StrRect      - github.com/TheLazyTomcat/Lib.StrRect
     WinFileInfo  - github.com/TheLazyTomcat/Lib.WinFileInfo
-    ZLibUtils    - github.com/TheLazyTomcat/Lib.ZLibUtils         
+    DynLibUtils  - github.com/TheLazyTomcat/Lib.DynLibUtils
+    ZLibUtils    - github.com/TheLazyTomcat/Lib.ZLibUtils
     ZLib         - github.com/TheLazyTomcat/Bnd.ZLib
 
 ===============================================================================}
