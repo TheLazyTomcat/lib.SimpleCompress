@@ -14,7 +14,7 @@
 
   Version 1.4 (2021-03-22)
 
-  Last change 2020-08-02
+  Last change 2021-11-07
 
   ©2015-2021 František Milt
 
@@ -33,14 +33,17 @@
       github.com/TheLazyTomcat/Lib.SimpleCompress
 
   Dependencies:
-    AuxTypes     - github.com/TheLazyTomcat/Lib.AuxTypes
-    AuxClasses   - github.com/TheLazyTomcat/Lib.AuxClasses
-    MemoryBuffer - github.com/TheLazyTomcat/Lib.MemoryBuffer
-    StrRect      - github.com/TheLazyTomcat/Lib.StrRect
-    WinFileInfo  - github.com/TheLazyTomcat/Lib.WinFileInfo
-    DynLibUtils  - github.com/TheLazyTomcat/Lib.DynLibUtils
-    ZLibUtils    - github.com/TheLazyTomcat/Lib.ZLibUtils
-    ZLib         - github.com/TheLazyTomcat/Bnd.ZLib
+    AuxTypes       - github.com/TheLazyTomcat/Lib.AuxTypes
+    AuxClasses     - github.com/TheLazyTomcat/Lib.AuxClasses
+    MemoryBuffer   - github.com/TheLazyTomcat/Lib.MemoryBuffer
+    StrRect        - github.com/TheLazyTomcat/Lib.StrRect
+    WinFileInfo    - github.com/TheLazyTomcat/Lib.WinFileInfo
+    DynLibUtils    - github.com/TheLazyTomcat/Lib.DynLibUtils
+    ZLibUtils      - github.com/TheLazyTomcat/Lib.ZLibUtils
+  * WindowsVersion - github.com/TheLazyTomcat/Lib.WindowsVersion    
+    ZLib           - github.com/TheLazyTomcat/Bnd.ZLib
+
+  Library WindowsVersion is only needed when compiling for Windows OS.
 
 ===============================================================================}
 unit SimpleCompress;
