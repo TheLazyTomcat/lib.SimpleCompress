@@ -12,9 +12,9 @@
     Set of functions designed to ease compression and decompression of memory
     buffers, streams and files. Actual compression is done using zlib library.
 
-  Version 1.4 (2021-03-22)
+  Version 1.4.1 (2021-12-12)
 
-  Last change 2021-11-07
+  Last change 2021-12-12
 
   ©2015-2021 František Milt
 
@@ -43,7 +43,8 @@
   * WindowsVersion - github.com/TheLazyTomcat/Lib.WindowsVersion    
     ZLib           - github.com/TheLazyTomcat/Bnd.ZLib
 
-  Library WindowsVersion is only needed when compiling for Windows OS.
+  Libraries DynLibUtils and WindowsVersion are needed only when compiling for
+  Windows OS.
 
 ===============================================================================}
 unit SimpleCompress;
@@ -338,10 +339,15 @@ Function ZCompressFile1(const FileName: String; ProgressEvent: TFloatEvent; Prog
 
 Function ZCompressFile2(const InFileName, OutFileName: String; ProgressEvent: TFloatEvent; ProgressCallback: TFloatCallback; UserData: Pointer; StreamType: TZStreamType): Boolean;
 var
+  IsSameFile:     Boolean;
   InFileStream:   TFileStream;
   OutFileStream:  TFileStream;
 begin
-If not SameFile(InFileName,OutFileName) then
+If FileExists(OutFileName) then
+  IsSameFile := SameFile(InFileName,OutFileName)
+else
+  IsSameFile := False;
+If not IsSameFile then
   begin
     InFileStream := TFileStream.Create(StrToRTL(InFileName),fmOpenRead or fmShareDenyWrite);
     try
@@ -628,10 +634,15 @@ Function ZDecompressFile1(const FileName: String; ProgressEvent: TFloatEvent; Pr
 
 Function ZDecompressFile2(const InFileName, OutFileName: String; ProgressEvent: TFloatEvent; ProgressCallback: TFloatCallback; UserData: Pointer; StreamType: TZStreamType): Boolean;
 var
+  IsSameFile:     Boolean;
   InFileStream:   TFileStream;
   OutFileStream:  TFileStream;
 begin
-If not SameFile(InFileName,OutFileName) then
+If FileExists(OutFileName) then
+  IsSameFile := SameFile(InFileName,OutFileName)
+else
+  IsSameFile := False;
+If not IsSameFile then
   begin
     InFileStream := TFileStream.Create(StrToRTL(InFileName),fmOpenRead or fmShareDenyWrite);
     try
