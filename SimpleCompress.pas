@@ -14,9 +14,9 @@
 
   Version 1.4.1 (2021-12-12)
 
-  Last change 2021-12-12
+  Last change 2022-09-24
 
-  ©2015-2021 František Milt
+  ©2015-2022 František Milt
 
   Contacts:
     František Milt: frantisek.milt@gmail.com
@@ -38,13 +38,14 @@
     MemoryBuffer   - github.com/TheLazyTomcat/Lib.MemoryBuffer
     StrRect        - github.com/TheLazyTomcat/Lib.StrRect
     WinFileInfo    - github.com/TheLazyTomcat/Lib.WinFileInfo
-    DynLibUtils    - github.com/TheLazyTomcat/Lib.DynLibUtils
+  * DynLibUtils    - github.com/TheLazyTomcat/Lib.DynLibUtils
+  * SimpleCPUID    - github.com/TheLazyTomcat/Lib.SimpleCPUID
     ZLibUtils      - github.com/TheLazyTomcat/Lib.ZLibUtils
-  * WindowsVersion - github.com/TheLazyTomcat/Lib.WindowsVersion    
+  * WindowsVersion - github.com/TheLazyTomcat/Lib.WindowsVersion
     ZLib           - github.com/TheLazyTomcat/Bnd.ZLib
 
-  Libraries DynLibUtils and WindowsVersion are needed only when compiling for
-  Windows OS.
+  Libraries DynLibUtils, SimpleCPUID and WindowsVersion are needed only when
+  compiling for Windows OS.
 
 ===============================================================================}
 unit SimpleCompress;
